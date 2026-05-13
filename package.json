@@ -1,0 +1,13 @@
+{
+  "name": "outlook-nudge",
+  "version": "1.0.0",
+  "description": "Email Nudge — Outlook Add-in",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
