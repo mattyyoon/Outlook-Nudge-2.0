@@ -1,12 +1,3 @@
-/**
- * Email Nudge — Outlook Add-in server
- *
- * Serves the taskpane HTML and static assets.
- * Must run over HTTPS for Office to load it — use a reverse proxy
- * (Nginx + Let's Encrypt) or deploy to a platform like Render / Railway
- * that provides HTTPS automatically.
- */
-
 const express = require('express');
 const path    = require('path');
 const app     = express();
@@ -14,32 +5,62 @@ const PORT    = process.env.PORT || 3000;
 
 // Security headers required by Office.js
 app.use((req, res, next) => {
-  // Office requires these for the add-in to load in the task pane
-  res.setHeader('X-Content-Type-Options',   'nosniff');
-  res.setHeader('X-Frame-Options',          'ALLOW-FROM https://outlook.office.com https://outlook.office365.com');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
   res.setHeader('Content-Security-Policy',
     "default-src 'self' https://appsforoffice.microsoft.com https://ajax.aspnetcdn.com; " +
     "script-src 'self' 'unsafe-inline' https://appsforoffice.microsoft.com https://ajax.aspnetcdn.com; " +
     "style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data:; " +
     "connect-src 'self' https://*.office.com https://*.microsoft.com https://graph.microsoft.com;"
   );
   next();
 });
 
-// Serve static files from /public
+// Serve static files from /public (taskpane.html, commands.html, icons/)
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve manifest.xml at root for easy sideloading
+// Root route — shows a status page so the bare URL isn't a blank error
+app.get('/', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Email Nudge</title>
+<style>body{font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc}
+.box{text-align:center;padding:40px;max-width:420px}
+.icon{width:56px;height:56px;background:#0ea5e9;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px}
+h1{font-size:22px;color:#0f172a;margin:0 0 8px}
+p{color:#64748b;margin:0 0 24px;line-height:1.6}
+.badge{display:inline-block;background:#dcfce7;color:#166534;font-size:13px;font-weight:600;padding:6px 16px;border-radius:20px}
+.links{margin-top:24px;display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+a{font-size:13px;color:#0ea5e9;text-decoration:none;padding:6px 14px;border:1px solid #bae6fd;border-radius:6px}
+a:hover{background:#f0f9ff}
+</style></head>
+<body>
+<div class="box">
+  <div class="icon">🔔</div>
+  <h1>Email Nudge</h1>
+  <p>Your Outlook add-in is deployed and running.<br>Install it in Outlook using the manifest link below.</p>
+  <div class="badge">&#10003; Server is online</div>
+  <div class="links">
+    <a href="/manifest.xml">manifest.xml</a>
+    <a href="/taskpane.html">taskpane.html</a>
+    <a href="/health">health check</a>
+  </div>
+</div>
+</body></html>`);
+});
+
+// Serve manifest.xml with correct content-type
 app.get('/manifest.xml', (req, res) => {
   res.setHeader('Content-Type', 'application/xml');
   res.sendFile(path.join(__dirname, 'manifest.xml'));
 });
 
-// Health check
-app.get('/health', (req, res) => res.json({ status: 'ok', service: 'outlook-nudge' }));
+// Health check — Render pings this to confirm the service is up
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', service: 'outlook-nudge', timestamp: new Date().toISOString() });
+});
 
 app.listen(PORT, () => {
-  console.log(`Email Nudge server running on port ${PORT}`);
-  console.log(`Taskpane: http://localhost:${PORT}/taskpane.html`);
-  console.log(`Manifest: http://localhost:${PORT}/manifest.xml`);
+  console.log(`Email Nudge running on port ${PORT}`);
 });
